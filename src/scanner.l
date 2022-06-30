@@ -38,6 +38,7 @@ comments    \{[^}]*\}
 "function"			 								{process_token(FUNCTION) ;}
 "var"                           {process_token(VAR); }
 "integer"                       {process_token(INTEGER); }
+"bool"                          {process_token(BOOL);}
 "real"                          {process_token(REAL) ;}
 "begin"                         {process_token(BEGINS) ; }
 "end"                           {process_token(END) ; }

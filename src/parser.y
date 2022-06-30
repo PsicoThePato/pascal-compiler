@@ -26,6 +26,7 @@ extern int yylineno;
 %token INTEGER
 %token PROGRAM
 %token REAL
+%token BOOL
 %token STRING
 %token THEN
 %token VAR
@@ -50,7 +51,7 @@ extern int yylineno;
 %token OF
 %token PROCEDURE
 %token MINUS
-%token PLUS
+%token PLUS	
 %token WHILE
 %%
 
@@ -68,7 +69,7 @@ identifier_list:
 ;
 
 declarations:
-  declarations VAR COLON type SEMICOLON
+  declarations VAR identifier_list COLON type SEMICOLON
 | %empty
 ;	
 
@@ -80,6 +81,7 @@ type:
 standard_type:
 	INTEGER
 |	REAL
+|	BOOL
 ;
 
 subprogram_declarations:
@@ -167,6 +169,7 @@ factor:
 |	INT_VAL
 |	OPAR expression CPAR
 |	NOT factor
+|	STR_VAL
 ;
 
 sign:
@@ -177,7 +180,8 @@ sign:
 %%
  
 void yyerror(char const *s){
-printf("%s\n", s);
+	printf("%d| %s\n", yylineno, s);
+	exit(1);
 } 
 
 
