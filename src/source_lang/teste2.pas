@@ -1,12 +1,11 @@
 program kek;
 
 var
-  b: bool;
-  i: integer;
+  b, y: bool;
 
 begin
   result := "aahhhh aaahahah ahhhhhhhhh";
-  write(result);
+  write(result)
 end;
 
 end.
