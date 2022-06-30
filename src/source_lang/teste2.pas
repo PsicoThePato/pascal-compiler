@@ -6,6 +6,6 @@ var
 begin
   result := "aahhhh aaahahah ahhhhhhhhh";
   write(result)
-end;
 
-end.
+end
+.
