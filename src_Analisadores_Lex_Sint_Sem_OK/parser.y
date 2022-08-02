@@ -1,4 +1,3 @@
-
 %output "parser.c"
 %defines "parser.h"
 %define parse.error verbose
@@ -11,12 +10,13 @@
 #include <unistd.h>
 #include "parser.h"
 #include "tables.h"
+#include "ast.h"
 
 int yylex();
 void yyerror(const char *s);
 
-void new_var(int size);
-void check_var();
+AST* new_var(int size);
+AST* check_var();
 
 int new_func();
 void add_params(int id);
@@ -34,7 +34,10 @@ FuncTable *ft;
 int scope;
 int param_count;
 int arg_count;
+AST *root;
 %}
+
+%define api.value.type {AST*}
 
 %token ELSE IF INPUT INT OUTPUT RETURN VOID WHILE WRITE
 %token SEMI COMMA LPAREN RPAREN LBRACK RBRACK LBRACE RBRACE
@@ -53,7 +56,7 @@ int arg_count;
 %%
 
 program:
-  func_decl_list
+  func_decl_list { root = new_subtree(PROGRAM_NODE, NO_TYPE, 2, $1); }
 ;
 
 func_decl_list:
@@ -74,8 +77,8 @@ func_body:
 ;
 
 opt_var_decl:
-  %empty
-| var_decl_list
+  %empty          { $$ = new_subtree(VAR_LIST_NODE, NO_TYPE, 0); }
+| var_decl_list   { $$ = $1; }
 ;
 
 opt_stmt_list:
@@ -104,8 +107,8 @@ param:
 ;
 
 var_decl_list:
-  var_decl_list var_decl
-| var_decl
+  var_decl_list var_decl  { add_child($1, $2); $$ = $1; }
+| var_decl              { $$ = new_subtree(VAR_LIST_NODE, NO_TYPE, 1, $1); }
 ;
 
 var_decl:
@@ -114,20 +117,20 @@ var_decl:
 ;
 
 stmt_list:
-  stmt_list stmt
-| stmt
+  stmt_list stmt      { add_child($1, $2); $$ = $1; }
+| stmt                { $$ = new_subtree(BLOCK_NODE, NO_TYPE, 1, $1); }
 ;
 
 stmt:
-  assign_stmt
-| if_stmt
-| while_stmt
-| return_stmt
-| func_call SEMI
+  assign_stmt       { $$ = $1; }
+| if_stmt           { $$ = $1; }
+| while_stmt        { $$ = $1; }
+| return_stmt       { $$ = $1; }
+| func_call SEMI    // ainda n temos nó de função lul.
 ;
 
-assign_stmt:
-  lval ASSIGN arith_expr SEMI
+assign_stmt:  // n sei pq começou a acusar erro D:
+  lval ASSIGN arith_expr SEMI { $$ = check_assign($1, $4); } // n deveria ser $1 e $3?
 ;
 
 id_var:
@@ -141,8 +144,8 @@ lval:
 ;
 
 if_stmt:
-  IF LPAREN bool_expr RPAREN block
-| IF LPAREN bool_expr RPAREN block ELSE block
+  IF LPAREN bool_expr RPAREN block                    { $$ = check_if($3, $5); }
+| IF LPAREN bool_expr RPAREN block ELSE block         { $$ = check_if_else($3, $5, $7); }
 ;
 
 block:
@@ -213,7 +216,8 @@ arith_expr:
 
 %%
 
-void new_var(int size) {
+//   ------------------------------------------------------------------------------------------- //
+AST* new_var(int size) {
     int lk_idx = lookup_var(vt, id_copy, scope);
     if (lk_idx == -1) {
         add_fresh_var(vt, id_copy, yylineno, scope, size);
@@ -223,15 +227,17 @@ void new_var(int size) {
             yylineno, id_copy, get_var_line(vt, lk_idx));
         exit(1);
     }
+        return new_node(VAR_USE_NODE, idx, get_type(vt, idx));
 }
 
-void check_var() {
+AST* check_var() {
     int lk_idx = lookup_var(vt, id_copy, scope);
     if (lk_idx == -1) {
         fprintf(stderr, "SEMANTIC ERROR (%d): variable '%s' was not declared.\n",
             yylineno, id_copy);
         exit(1);
     }
+    return new_node(VAR_USE_NODE, idx, get_type(vt, idx));
 }
 
 int new_func() {
@@ -274,6 +280,25 @@ void check_fcall(int id) {
     }
 }
 
+void check_bool_expr(const char* cmd, Type t) {
+    if (t != BOOL_TYPE) {
+        printf("SEMANTIC ERROR (%d): conditional expression in '%s' is '%s' instead of '%s'.\n",
+           yylineno, cmd, get_text(t), get_text(BOOL_TYPE));
+    exit(EXIT_FAILURE);
+    }
+}
+
+AST* check_if(AST *e, AST *b) {
+    check_bool_expr("if", get_node_type(e));
+    return new_subtree(IF_NODE, NO_TYPE, 2, e, b);
+}
+
+AST* check_if_else(AST *e, AST *b1, AST *b2) {
+    check_bool_expr("if", get_node_type(e));
+    return new_subtree(IF_NODE, NO_TYPE, 3, e, b1, b2);
+}
+
+
 // Error handling.
 void yyerror (char const *s) {
     fprintf(stderr, "PARSE ERROR (%d): %s\n", yylineno, s);
@@ -303,4 +328,3 @@ int main() {
 
     return 0;
 }
-
